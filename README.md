@@ -276,6 +276,9 @@ Install the following plugins from **Manage Jenkins → Plugins → Available Pl
 8. Click Create.
 ![add sonarqube credential](images/add_sonar_credential.png)
 
+## add sonarqube in jenkins 
+![add sonarqube in jenkins](images/sonar_in_jenkins.png)
+
 
 -------
 
