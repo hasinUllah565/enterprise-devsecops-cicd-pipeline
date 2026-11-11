@@ -206,7 +206,7 @@ sudo systemctl status jenkins
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
 
-### 6. Access Jenkins Dashboard
+## 6. Access Jenkins Dashboard
 
 Open your browser:
 
@@ -216,23 +216,36 @@ http://YOUR_SERVER_IP:8080
 
 Enter the initial admin password, install suggested plugins, and create your administrator account.
 
-### Jenkins Dashboard
+## Jenkins Dashboard
 
 ![Jenkins Dashboard](images/jenkins-dashboard.jpeg)
 
-### Jenkins Required Plugins
+## 7: Jenkins Required Plugins
 
 Install the following plugins from **Manage Jenkins → Plugins → Available Plugins**.
 
 | Plugin Name | Purpose |
 |---|---|
-| Eclipse Temurin Installer (1.5) | JDK installation and management |
-| Config File Provider | Manage configuration files |
-| Kubernetes | Kubernetes integration |
-| Kubernetes CLI | Execute Kubernetes commands |
-| Kubernetes Client API | Kubernetes API communication |
-| Kubernetes Credentials | Manage Kubernetes credentials |
+| Eclipse Temurin Installer (1.5) |   JDK installation and management |
+| Config File Provider |   Manage configuration files |
+| Kubernetes |   Kubernetes integration |
+| Kubernetes CLI |   Execute Kubernetes commands |
+| Kubernetes Client API |   Kubernetes API communication |
+| Kubernetes Credentials |   Manage Kubernetes credentials |
+| Maven integration |
 
+
+-------
+
+## 9: Configure Jenkins Tools
+Navigate to **Manage Jenkins → Tools** and configure the following tools:
+
+1. **JDK** – Java Development Kit
+2. **SonarQube Scanner** – Code quality analysis
+3. **Maven** – Build and dependency management
+4. **Docker** – Containerization
+
+  Configure the installation paths or automatic installers for each tool as required.
 
 
 
