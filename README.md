@@ -200,7 +200,7 @@ sudo systemctl status jenkins
 ```
 
 ### 5. Get Initial Admin Password
-![jenkins unlock](images/images/jenkins-unlock.jpeg)
+![jenkins unlock](./images/jenkins-unlock.jpeg)
 
 ```bash
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
