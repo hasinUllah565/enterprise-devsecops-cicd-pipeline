@@ -247,7 +247,11 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
 
   Configure the installation paths or automatic installers for each tool as required.
 
+## How to add credential in Jenkins there are the steps
 
+![add credential in jenkins](images/add_credential_in_jenkins.png)
+
+![add credential ](images/add_credential.jpeg)
 
 
 ==============================
