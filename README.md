@@ -264,6 +264,18 @@ Install the following plugins from **Manage Jenkins → Plugins → Available Pl
 | Kubernetes Credentials |   Manage Kubernetes credentials |
 | Maven integration |
 
+------------
+### Add Sonarqube token in Jenkins
+1. Open `SonarQube` → `Administration` → `Security` → `Users` → `Tokens`.
+2. Generate a `new token` and copy it.
+3. Open Jenkins → `Manage Jenkins` → `Credentials`.
+4. Click `Global credentials` → `Add Credentials`.
+5. Select Kind: `Secret text`.
+6. Paste the token into Secret.
+7. Set ID: `sonar-token`.
+8. Click Create.
+![add sonarqube credential](images/add_sonar_credential.png)
+
 
 -------
 
