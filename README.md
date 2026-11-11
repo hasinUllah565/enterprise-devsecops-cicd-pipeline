@@ -220,6 +220,23 @@ Enter the initial admin password, install suggested plugins, and create your adm
 
 ![Jenkins Dashboard](images/jenkins-dashboard.jpeg)
 
+### Jenkins Required Plugins
+
+Install the following plugins from **Manage Jenkins → Plugins → Available Plugins**.
+
+| Plugin Name | Purpose |
+|---|---|
+| Eclipse Temurin Installer (1.5) | JDK installation and management |
+| Config File Provider | Manage configuration files |
+| Kubernetes | Kubernetes integration |
+| Kubernetes CLI | Execute Kubernetes commands |
+| Kubernetes Client API | Kubernetes API communication |
+| Kubernetes Credentials | Manage Kubernetes credentials |
+
+
+
+
+
 ==============================
 
 
