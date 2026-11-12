@@ -298,6 +298,11 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
 
 ![add credential ](images/add_credential.jpeg)
 
+1. Open `SonarQube` → `Administration` → `Configuration` → `Webhooks` → Create and enter your Jenkins webhook URL: `http://YOUR_JENKINS_IP:8080/sonarqube-webhook/`.
+2. Set the webhook name to `'Jenkins'` and click Create.
+   
+![SonarQube Jenkins Webhook](images/sonar_webhook.png)
+
 
 ==============================
 
