@@ -342,6 +342,11 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
     Set the <id> values to nexus-releases and nexus-snapshots to match the IDs in your pom.xml.
    
 ![add ID in manage file ](images/manage_file.png)
+
+## add nexus user and password
+
+![add nexus user and password](images/nexus_user_password.png)
+
   
 
 ==============================
