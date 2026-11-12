@@ -327,11 +327,21 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
 
 3. Replace `YOUR_NEXUS_IP` with your actual Nexus server IP address.
 
-4. Configure Nexus credentials in Maven's `settings.xml`, using the matching IDs:
-   - `nexus-releases`
-   - `nexus-snapshots`
+   
+   ![Nexus Maven Release and Snapshot Configuration](images/nexus-maven-release-snapshot.png)
 
-  ![Nexus Maven Release and Snapshot Configuration](images/nexus-maven-release-snapshot.png)
+       - `nexus-releases`
+       - `nexus-snapshots`
+
+4.  Go to Jenkins → Manage Jenkins → Managed files → Add a new Config → Maven settings.xml.
+    Enter ID nexus-settings, add Nexus server IDs (nexus-releases and nexus-snapshots), select their Jenkins credentials, and click Submit/Save.
+
+5. Configure Nexus credentials in Maven's `settings.xml`, using the matching IDs:
+   
+    Open ~/.m2/settings.xml and add your Nexus username and password inside the <servers> section.
+    Set the <id> values to nexus-releases and nexus-snapshots to match the IDs in your pom.xml.
+   
+![add ID in manage file ](images/manage_file.png)
   
 
 ==============================
