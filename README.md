@@ -292,7 +292,7 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
 
   Configure the installation paths or automatic installers for each tool as required.
 
-## How to add credential in Jenkins there are the steps
+## 10: How to add credential in Jenkins there are the steps
 
 ![add credential in jenkins](images/add_credential_in_jenkins.png)
 
@@ -303,6 +303,36 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
    
 ![SonarQube Jenkins Webhook](images/sonar_webhook.png)
 
+## 11. Configure Nexus Maven Release and Snapshot Repositories
+
+1. Open **Nexus Repository Manager → Repositories** and create two Maven hosted repositories:
+   - `maven-releases`
+   - `maven-snapshots`
+
+2. Add the following configuration inside the `<project>` section of your `pom.xml`:
+
+```xml
+<distributionManagement>
+    <repository>
+        <id>nexus-releases</id>
+        <url>http://YOUR_NEXUS_IP:8081/repository/maven-releases/</url>
+    </repository>
+
+    <snapshotRepository>
+        <id>nexus-snapshots</id>
+        <url>http://YOUR_NEXUS_IP:8081/repository/maven-snapshots/</url>
+    </snapshotRepository>
+</distributionManagement>
+```
+
+3. Replace `YOUR_NEXUS_IP` with your actual Nexus server IP address.
+
+4. Configure Nexus credentials in Maven's `settings.xml`, using the matching IDs:
+   - `nexus-releases`
+   - `nexus-snapshots`
+
+  ![Nexus Maven Release and Snapshot Configuration](images/nexus-maven-release-snapshot.png)
+  
 
 ==============================
 
