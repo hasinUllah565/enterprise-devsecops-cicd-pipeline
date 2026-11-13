@@ -347,7 +347,112 @@ Navigate to **Manage Jenkins → Tools** and configure the following tools:
 
 ![add nexus user and password](images/nexus_user_password.png)
 
-  
+=====================
+
+
+  ## 12. Configure Kubernetes RBAC for Jenkins
+
+Create a dedicated namespace, ServiceAccount, Role, RoleBinding, and Secret to allow Jenkins to deploy applications into Kubernetes.
+
+### 1. Create Namespace
+
+```bash
+kubectl create namespace webapps
+```
+
+### 2. Create Kubernetes Configuration Files
+
+**Create `svc.yaml` – ServiceAccount**
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: webapps
+```
+
+**Create `role.yaml` – Role**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app-role
+  namespace: webapps
+rules:
+- apiGroups: ["", "apps"]
+  resources: ["pods", "services", "deployments", "replicasets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+```
+
+**Create `bind.yaml` – RoleBinding**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-rolebinding
+  namespace: webapps
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: webapps
+roleRef:
+  kind: Role
+  name: app-role
+  apiGroup: rbac.authorization.k8s.io
+```
+
+**Create `sec.yaml` – Secret**
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysecretname
+  namespace: webapps
+  annotations:
+    kubernetes.io/service-account.name: jenkins
+type: kubernetes.io/service-account-token
+```
+
+Replace the example credentials with your actual values. Never commit real credentials to GitHub.
+
+### 3. Apply Kubernetes Configurations
+
+```bash
+kubectl apply -f svc.yaml
+kubectl apply -f role.yaml
+kubectl apply -f bind.yaml
+kubectl apply -f sec.yaml
+```
+
+### 4. Verify Kubernetes Resources
+
+```bash
+kubectl get serviceaccount -n webapps
+kubectl get roles -n webapps
+kubectl get rolebindings -n webapps
+kubectl get secrets -n webapps
+```
+
+**Result:** Jenkins now has a dedicated ServiceAccount and namespace-scoped RBAC permissions for managing application resources in Kubernetes.
+
+![kubernetes configuration](images/resource_in_k8s.png)
+
+
+
+## Add Kubernetes Token to Jenkins Credentials
+
+### show cred in on terminal 
+1. Retrieve the ServiceAccount token using `kubectl describe secret mysecretname -n webapps` or `kubectl get secret mysecretname -n webapps -o jsonpath='{.data.token}' | base64 --decode`.
+![show cred on terminal](images/show_cred_of_k8s.png)
+
+3. Go to **Jenkins → Manage Jenkins → Credentials → Global Credentials → Add Credentials**.
+4. Select **Secret text**, paste the Kubernetes token into **Secret**, set ID to `k8s-token`, and click **Create**.
+
+![add k8s credential in jenkins  ](images/k8s_cred.png)
 
 ==============================
 
