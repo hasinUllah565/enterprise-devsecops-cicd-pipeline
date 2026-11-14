@@ -454,6 +454,26 @@ kubectl get secrets -n webapps
 
 ![add k8s credential in jenkins  ](images/k8s_cred.png)
 
+=========================
+
+## Email Notification Configuration in Jenkins
+
+1. Generate a Gmail App Password from [Google App Passwords](https://myaccount.google.com/apppasswords).
+2. Add Gmail credentials in Jenkins:
+   - Username: Gmail address
+   - Password: Gmail App Password (without spaces)
+   - ID: `mail-cred`
+3. Configure SMTP under Manage Jenkins → System → Extended E-mail Notification:
+   - SMTP Server: `smtp.gmail.com`
+   - SMTP Port: `465`
+   - Credentials: `mail-cred`
+   - Enable SSL.
+4. Configure the default subject and recipients.
+5. Add `post { success { ... } failure { ... } }` with `emailext` in the Jenkinsfile.
+6. Run the pipeline and verify that Jenkins sends success or failure emails.
+
+![jenkins email process](images/jenkins_email_process.png)
+
 ==============================
 
 
