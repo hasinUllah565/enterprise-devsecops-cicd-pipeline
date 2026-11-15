@@ -93,7 +93,7 @@ docker run -d \
 ```bash
 docker ps
 ```
-[nexus setup](./images/nexus_setup.png!)
+![nexus setup](./images/nexus_setup.png)
 
 ### 3. Get Admin Password
 
