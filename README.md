@@ -474,6 +474,286 @@ kubectl get secrets -n webapps
 
 ![jenkins email process](images/jenkins_email_process.png)
 
+
+===========================
+===========================
+
+# Prometheus, Node Exporter & Grafana Installation and Integration
+
+## 1. Install Node Exporter
+
+Download and install Node Exporter:
+
+```bash
+cd /tmp
+wget https://github.com/prometheus/node_exporter/releases/download/v1.10.2/node_exporter-1.10.2.linux-amd64.tar.gz
+
+tar -xvf node_exporter-1.10.2.linux-amd64.tar.gz
+
+sudo mv node_exporter-1.10.2.linux-amd64/node_exporter /usr/local/bin/
+```
+
+Create a systemd service:
+
+```bash
+sudo nano /etc/systemd/system/node_exporter.service
+```
+
+Add:
+
+```ini
+[Unit]
+Description=Prometheus Node Exporter
+After=network.target
+
+[Service]
+User=nobody
+ExecStart=/usr/local/bin/node_exporter
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now node_exporter
+sudo systemctl status node_exporter
+```
+
+Test:
+
+```text
+http://192.168.18.15:9100/metrics
+```
+
+## 2. Install Prometheus
+
+Download Prometheus:
+
+```bash
+cd /tmp
+
+wget https://github.com/prometheus/prometheus/releases/download/v3.16.0/prometheus-3.16.0.linux-amd64.tar.gz
+
+tar -xvf prometheus-3.16.0.linux-amd64.tar.gz
+
+cd prometheus-3.16.0.linux-amd64
+```
+
+Install binaries:
+
+```bash
+sudo mv prometheus promtool /usr/local/bin/
+sudo mkdir -p /etc/prometheus /var/lib/prometheus
+sudo cp prometheus.yml /etc/prometheus/
+```
+
+## 3. Configure prometheus.yml
+
+Open the configuration:
+
+```bash
+sudo nano /etc/prometheus/prometheus.yml
+```
+
+Add:
+
+```yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["192.168.18.15:9100"]
+
+  - job_name: "jenkins"
+    metrics_path: "/prometheus"
+    static_configs:
+      - targets: ["192.168.18.15:8080"]
+```
+
+**Note:** The Jenkins Prometheus metrics endpoint must be enabled for this target to work. Remove the Jenkins job if you have not configured it.
+
+## 4. Create Prometheus Service
+
+Create:
+
+```bash
+sudo nano /etc/systemd/system/prometheus.service
+```
+
+Add:
+
+```ini
+[Unit]
+Description=Prometheus Monitoring
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus
+
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Start Prometheus:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now prometheus
+sudo systemctl status prometheus
+```
+
+Validate configuration:
+
+```bash
+sudo promtool check config /etc/prometheus/prometheus.yml
+```
+
+Open Prometheus:
+
+```text
+http://192.168.18.15:9090
+```
+
+Check targets:
+
+```text
+http://192.168.18.15:9090/targets
+```
+
+## 5. Install Grafana
+
+Install Grafana using its official APT repository:
+
+```bash
+sudo apt-get install -y apt-transport-https wget gnupg
+
+sudo mkdir -p /etc/apt/keyrings
+
+sudo wget -O /etc/apt/keyrings/grafana.asc https://apt.grafana.com/gpg-full.key
+
+sudo chmod 644 /etc/apt/keyrings/grafana.asc
+
+echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+
+sudo apt-get update
+
+sudo apt-get install -y grafana
+```
+
+Start Grafana:
+
+```bash
+sudo systemctl enable --now grafana-server
+sudo systemctl status grafana-server
+```
+
+Open Grafana:
+
+```text
+http://192.168.18.15:3000
+```
+
+Default login:
+
+```text
+Username: admin
+Password: admin
+```
+
+Change the default password after login.
+
+## 6. Integrate Prometheus with Grafana
+
+1. Open Grafana: `http://192.168.18.15:3000`
+2. Log in.
+3. Go to **Connections → Data sources**.
+4. Click **Add data source**.
+5. Select **Prometheus**.
+6. In the Prometheus URL field, enter:
+
+```text
+http://localhost:9090
+```
+
+7. Click **Save & test**.
+
+Expected result:
+
+```text
+Successfully queried the Prometheus API.
+```
+
+**Important:** `localhost:9090` works because Grafana and Prometheus are running on the same Ubuntu machine. If Grafana is on another server, use the reachable Prometheus server IP instead.
+
+## 7. Create Grafana Dashboard
+
+1. Go to **Explore**.
+2. Select the Prometheus data source.
+3. Test this query:
+
+```promql
+up
+```
+
+4. Click **Run query**.
+5. To create a dashboard, go to **Dashboards → New → New dashboard → Add visualization**.
+6. Select Prometheus and enter a query.
+7. Click **Apply** and **Save dashboard**.
+
+You can also import the Node Exporter dashboard:
+
+**Dashboard ID:** `1860`
+
+https://grafana.com/grafana/dashboards/1860-node-exporter-full/
+
+## 8. Final URLs
+
+| Service | URL |
+|---|---|
+| Prometheus | http://192.168.18.15:9090 |
+| Prometheus Targets | http://192.168.18.15:9090/targets |
+| Node Exporter | http://192.168.18.15:9100/metrics |
+| Grafana | http://192.168.18.15:3000 |
+| Jenkins | http://192.168.18.15:8080 |
+
+## 9. Verify Services
+
+```bash
+sudo systemctl status prometheus
+sudo systemctl status node_exporter
+sudo systemctl status grafana-server
+```
+
+**Monitoring Flow:**
+
+`Node Exporter → Prometheus → Grafana Dashboard`
+
+
+
+## Jenkins build process
+![jenkins buidling process](images/jenkins.build_process.png)
+
+
+# Garafana Dashbaord
+
+![Grafana dashbaord](images/grafana_dashbaord.png)
 ==============================
 
 
