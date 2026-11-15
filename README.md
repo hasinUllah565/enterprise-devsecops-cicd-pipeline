@@ -13,7 +13,8 @@ An end-to-end Enterprise DevSecOps project that automates application building, 
 - **Prometheus** – Monitoring
 - **Grafana** – Monitoring Dashboards
 - **Email Notification** – Automated Pipeline Status Notifications
-
+  
+![All technology that are used](./images/all_technologies.png)
 
 
 # Kubernetes Installation Commands
