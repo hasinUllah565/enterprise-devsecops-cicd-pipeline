@@ -1,0 +1,490 @@
+# DevSecOps CI/CD Project – Troubleshooting History
+
+This document records the major problems I faced while building and configuring my Enterprise DevSecOps CI/CD pipeline using Jenkins, Docker, Kubernetes (Kind), SonarQube, Nexus, Trivy, Prometheus, Node Exporter, and Blackbox Exporter. It includes the causes, solutions, and commands used to fix each issue so that I can troubleshoot similar problems independently in the future.
+
+---
+
+## 1. Jenkins Pipeline Errors
+
+### Problem 1: `No such DSL method 'withMaven'`
+
+**Error:**
+```text
+java.lang.NoSuchMethodError:
+No such DSL method 'withMaven'
+```
+
+**Cause:**  
+The Jenkins Pipeline Maven Integration plugin was missing or inactive.
+
+**Solution:**
+- Open Manage Jenkins → Plugins.
+- Search for Pipeline Maven Integration.
+- Install and restart Jenkins if required.
+
+**Lesson:**  
+Jenkins pipeline steps such as `withMaven` require their corresponding plugins.
+
+### Problem 2: Nexus Maven Deployment – 401 Unauthorized
+
+**Error:**
+```text
+401 Unauthorized
+Could not transfer metadata from/to maven-snapshots
+```
+
+**Cause:**  
+Maven was not correctly using the credentials configured in the Jenkins-managed `settings.xml` file.
+
+**Solution:**  
+Used Config File Provider to supply the Maven settings file explicitly:
+
+```groovy
+configFileProvider([
+    configFile(fileId: 'global-setting', variable: 'MAVEN_SETTINGS')
+]) {
+    withMaven(
+        jdk: 'jdk21',
+        maven: 'maven3'
+    ) {
+        sh 'mvn -s "$MAVEN_SETTINGS" clean deploy'
+    }
+}
+```
+
+Also verified that the server IDs in `settings.xml` matched the repository IDs:
+
+- `maven-releases`
+- `maven-snapshots`
+
+**Lesson:**  
+Maven repository credentials must match the repository server IDs, and Jenkins must supply the correct settings file.
+
+### Problem 3: `No such DSL method 'withDockerRegistry'`
+
+**Error:**
+```text
+java.lang.NoSuchMethodError:
+No such DSL method 'withDockerRegistry'
+```
+
+**Cause:**  
+The Jenkins Docker Pipeline plugin was missing or inactive.
+
+**Solution:**
+- Open Manage Jenkins → Plugins.
+- Install the **Docker Pipeline** plugin.
+- Its plugin ID is `docker-workflow`.
+- Restart Jenkins if required.
+
+**Lesson:**  
+The Docker Pipeline plugin provides the `withDockerRegistry` pipeline step. Installing only the Docker plugin is not necessarily sufficient.
+
+### Problem 4: SonarQube Webhook – Server Unreachable
+
+**Problem:**  
+SonarQube could not communicate with Jenkins through the webhook.
+
+**Cause:**  
+The Ubuntu firewall (UFW) was blocking communication from the Docker bridge to Jenkins on port 8080.
+
+**Solution:**
+```bash
+sudo ufw allow in on docker0 to any port 8080 proto tcp
+```
+
+Configured the SonarQube webhook URL:
+
+```text
+http://192.168.18.15:8080/sonarqube-webhook/
+```
+
+**Lesson:**  
+SonarQube must be able to reach Jenkins for the Quality Gate webhook to work.
+
+### Problem 5: Jenkins Kubernetes Credentials
+
+**Problem:**  
+Jenkins could not correctly access the Kubernetes kubeconfig credential.
+
+**Cause:**  
+The kubeconfig credential was initially stored in the wrong credentials store.
+
+**Solution:**
+- Open Manage Jenkins → Credentials.
+- Select System → Global credentials.
+- Add the kubeconfig credential with ID `k8s-cred`.
+
+Exported the Kind kubeconfig:
+
+```bash
+kubectl config view --raw --minify --flatten > kind-kubeconfig.yaml
+chmod 600 kind-kubeconfig.yaml
+```
+
+Added it to `.gitignore`:
+
+```gitignore
+kind-kubeconfig.yaml
+```
+
+**Lesson:**  
+Store Kubernetes credentials in the appropriate Jenkins credentials store and never commit kubeconfig files to GitHub.
+
+---
+
+## 2. Trivy Security Scanning Errors
+
+### Problem 6: Docker Image Scan – Context Deadline Exceeded
+
+**Error:**
+```text
+FATAL Fatal error
+walk dir error: context deadline exceeded
+```
+
+**Cause:**  
+Trivy took longer than its configured timeout while analysing a Docker image layer.
+
+**Solution:**  
+Increased the scan timeout from the default to 15 minutes:
+
+```bash
+trivy image --timeout 15m \
+  --format table \
+  -o trivy-image-report.txt \
+  hasinullah/enterprise-devsecops-cicd-pipeline:latest
+```
+
+**Lesson:**  
+Large Docker images and layers may require a longer scanning timeout.
+
+### Problem 7: Understanding Trivy Java DB Download
+
+**Message:**
+```text
+INFO [javadb] Downloading Java DB...
+INFO [javadb] Downloading artifact...
+```
+
+**Cause:**  
+Trivy was downloading its Java vulnerability database to analyse Java dependencies.
+
+**Solution:**  
+No fix was necessary. This was normal activity.
+
+Trivy also reported:
+
+```text
+Java DB is cached for 3 days.
+```
+
+This means the Java database can be reused from its cache for three days.
+
+To clear the Java database cache when an update is needed:
+
+```bash
+trivy clean --java-db
+```
+
+**Lesson:**  
+Java DB downloading is not an error. It is part of vulnerability analysis for Java applications.
+
+---
+
+## 3. Docker and Kubernetes Errors
+
+### Problem 8: Kubernetes Pods – ImagePullBackOff
+
+**Error:**
+```text
+STATUS: ImagePullBackOff
+```
+
+**Cause:**  
+Kubernetes could not download the Docker image:
+
+```text
+hasinullah/enterprise-devsecops-cicd-pipeline:latest
+```
+
+Initially, the Docker image could be pulled from the Ubuntu host, but the Kind worker could not pull it.
+
+**Diagnostic command:**
+```bash
+docker pull hasinullah/enterprise-devsecops-cicd-pipeline:latest
+```
+
+The host successfully downloaded the image.
+
+Then tested directly inside the Kind worker:
+
+```bash
+docker exec devops-lab-worker crictl pull \
+  docker.io/hasinullah/enterprise-devsecops-cicd-pipeline:latest
+```
+
+Received:
+
+```text
+pull access denied
+insufficient_scope: authorization failed
+```
+
+**Root cause:**  
+The Docker Hub repository was private, and the Kind worker did not have authentication credentials.
+
+**Solution applied:**  
+Changed the Docker Hub repository visibility from Private to Public.
+
+Repository:
+
+```text
+hasinullah/enterprise-devsecops-cicd-pipeline
+```
+
+Then Kubernetes successfully pulled the image.
+
+**Alternative solution for private repositories:**  
+Create a Kubernetes image pull secret using a Docker Hub access token:
+
+```bash
+kubectl create secret docker-registry dockerhub-secret \
+  --docker-server=https://index.docker.io/v1/ \
+  --docker-username=hasinullah \
+  --docker-password='YOUR_ACCESS_TOKEN' \
+  --docker-email='YOUR_EMAIL' \
+  -n webapps
+```
+
+Reference it in the Deployment:
+
+```yaml
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+        - name: dockerhub-secret
+```
+
+**Lesson:**  
+A successful Docker pull on the host does not guarantee that a Kind worker can pull the same image. Each Kubernetes node has its own container image storage and registry authentication context.
+
+### Problem 9: Understanding Kubernetes Pods and Docker Containers
+
+**Mistake:**
+```bash
+docker stop pod -n webapps
+```
+
+**Error:**
+```text
+unknown shorthand flag: 'n' in -n
+```
+
+**Cause:**  
+Docker commands do not understand Kubernetes namespaces or Pod names.
+
+**Solution:**  
+Use Kubernetes commands to manage Kubernetes workloads.
+
+To stop the application's Pods:
+
+```bash
+kubectl scale deployment enterprise-devsecops-deployment \
+  --replicas=0 -n webapps
+```
+
+To start them again:
+
+```bash
+kubectl scale deployment enterprise-devsecops-deployment \
+  --replicas=2 -n webapps
+```
+
+To check Pods:
+
+```bash
+kubectl get pods -n webapps
+```
+
+**Lesson:**  
+Use `kubectl` to manage Kubernetes Deployments and Pods. Use `docker` to manage Docker containers.
+
+### Problem 10: Accessing the Kubernetes Application
+
+**Problem:**  
+The application was deployed successfully, but I needed to access it through a browser.
+
+The Kubernetes Service showed:
+
+```text
+NAME                           TYPE       PORT(S)
+enterprise-devsecops-service   NodePort   80:30776/TCP
+```
+
+**Solution:**  
+Used Kubernetes port forwarding:
+
+```bash
+kubectl port-forward svc/enterprise-devsecops-service \
+  8082:80 -n webapps
+```
+
+Then opened:
+
+```text
+http://localhost:8082
+```
+
+**Port conflicts encountered:**
+
+- Jenkins uses port `8080`.
+- Nexus uses port `8081`.
+- SonarQube uses port `9000`.
+- Application uses port `8082` through port forwarding.
+
+**Lesson:**  
+Choose an unused local port for port forwarding. Keep the port-forward command running while accessing the application.
+
+---
+
+## 4. Prometheus Installation and Configuration Errors
+
+### Problem 11: Prometheus – Exec Format Error
+
+**Error:**
+```text
+cannot execute binary file: Exec format error
+```
+
+**Cause:**  
+I downloaded:
+
+```text
+prometheus-3.16.0.darwin-amd64
+```
+
+This was the macOS version, but my operating system was Ubuntu Linux.
+
+**Solution:**  
+Downloaded the Linux version instead:
+
+```text
+prometheus-3.16.0.linux-amd64
+```
+
+For a 64-bit Ubuntu system:
+
+```bash
+wget https://github.com/prometheus/prometheus/releases/download/v3.16.0/prometheus-3.16.0.linux-amd64.tar.gz
+```
+
+Extracted it:
+
+```bash
+tar -xzf prometheus-3.16.0.linux-amd64.tar.gz
+```
+
+Started Prometheus:
+
+```bash
+./prometheus --config.file=prometheus.yml
+```
+
+Opened:
+
+```text
+http://localhost:9090
+```
+
+**Lesson:**  
+Always download the binary matching the operating system and CPU architecture.
+
+### Problem 12: Prometheus YAML Configuration Errors
+
+**Problem:**  
+The initial Prometheus configuration contained incorrect YAML indentation, quotation marks, incomplete targets, and incorrectly formatted relabel configurations.
+
+**Cause:**  
+YAML requires correct indentation and valid key-value structures.
+
+**Solution:**  
+Rewrote the configuration using valid YAML syntax and configured these monitoring jobs:
+
+1. `prometheus`
+2. `node_exporter`
+3. `jenkins`
+4. `blackbox`
+
+Prometheus configuration validation:
+
+```bash
+./promtool check config prometheus.yml
+```
+
+Prometheus targets page:
+
+```text
+http://localhost:9090/targets
+```
+
+**Lesson:**  
+Always validate `prometheus.yml` with `promtool` before restarting Prometheus.
+
+**Important configuration note:**  
+The configured exporter addresses must match where the exporters actually run. Jenkins must have its Prometheus metrics endpoint enabled, and Blackbox Exporter must have the `http_2xx` module configured.
+
+---
+
+## 5. Important Lessons for Future Troubleshooting
+
+These are the main commands I should remember:
+
+| Task | Command |
+|---|---|
+| Check Kubernetes Pods | `kubectl get pods -n webapps` |
+| Check Services | `kubectl get svc -n webapps` |
+| Describe a Pod | `kubectl describe pod POD_NAME -n webapps` |
+| Restart Deployment | `kubectl rollout restart deployment enterprise-devsecops-deployment -n webapps` |
+| Stop application Pods | `kubectl scale deployment enterprise-devsecops-deployment --replicas=0 -n webapps` |
+| Start application Pods | `kubectl scale deployment enterprise-devsecops-deployment --replicas=2 -n webapps` |
+| Check Deployment | `kubectl get deployment -n webapps` |
+| Check Docker images | `docker images` |
+| Pull Docker image | `docker pull IMAGE_NAME` |
+| Check Prometheus config | `./promtool check config prometheus.yml` |
+| Check Prometheus targets | `http://localhost:9090/targets` |
+| Check Jenkins | `http://192.168.18.15:8080` |
+| Check Nexus | `http://192.168.18.15:8081` |
+| Check SonarQube | `http://192.168.18.15:9000` |
+
+---
+
+## 6. Recommended CI/CD Pipeline Order
+
+For a reliable CI/CD workflow, the stages should follow this order:
+
+1. Git Checkout
+2. Compile
+3. Test
+4. Trivy Filesystem Scan
+5. SonarQube Analysis
+6. Quality Gate
+7. Deploy to Nexus
+8. Build and Tag Docker Image
+9. Trivy Docker Image Scan
+10. Push Docker Image to Docker Hub
+11. Deploy to Kubernetes
+12. Verify Kubernetes Deployment
+13. Send Email Notification
+
+**Important:** Kubernetes deployment should happen after the new Docker image has been built, scanned, and pushed. Otherwise, Kubernetes may deploy an older image.
+
+---
+
+## Conclusion
+
+During this project, I learned how to troubleshoot Jenkins plugin errors, Maven authentication problems, Nexus deployment failures, SonarQube webhook connectivity, Trivy scanning timeouts, Docker Hub authentication, Kubernetes image pulling, Pod management, port forwarding, Prometheus installation, and YAML configuration.
+
+The most important lesson is to identify the root cause before changing configurations. I should use Jenkins Console Output, Kubernetes Events, Docker logs, and Prometheus configuration validation to troubleshoot problems systematically instead of randomly changing commands or settings.
+

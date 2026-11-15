@@ -1,1 +1,6 @@
-kind-kubeconfig.yaml
+# Prometheus downloaded binaries
+prometheus_grafana/prometheus-3.16.0.linux-amd64/prometheus
+prometheus_grafana/prometheus-3.16.0.linux-amd64/promtool
+
+# Downloaded archives
+*.tar.gzkind-kubeconfig.yaml
